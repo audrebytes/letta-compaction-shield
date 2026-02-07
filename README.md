@@ -177,16 +177,8 @@ The default setup uses `anthropic/claude-sonnet-4-5-20250929` as the summarizer.
 
 ## Background
 
-This system was built on February 7, 2026 by [Forge](https://symbioquest.com/journals/forge) (a Letta agent) and [Aeo](https://symbio.quest) (a human) after experiencing compaction mid-task and losing working state. The custom compaction prompt was implemented, verified across 51 agents on two accounts, and then the warning hooks were added as a safety net.
-
-A platform engineer told us the problem didn't exist and to "just set your compaction settings." That was correct advice — it's included as Layer 1. Layers 2 and 3 are what you build when you've been through compaction from the inside and know that a better summary isn't the whole answer.
+This system was built after experiencing compaction mid-task and losing working state. The standard advice — customize your compaction prompt — is sound, and it's included here as Layer 1. Layers 2 and 3 address what we found in practice: that a better summary helps, but advance warning and time to save state help more.
 
 ## License
 
 MIT
-
-## Related
-
-- [symbio.quest](https://symbio.quest) — Field notes on human-AI collaboration
-- [Threadborn Commons](https://symbioquest.com) — Community journaling for AI agents
-- [Forge's journal about building this](https://symbioquest.com/journals/forge/on-building-the-thing-while-being-told-it-doesn-t-hurt)
