@@ -1,0 +1,15 @@
+You are summarizing a conversation to reduce context window usage.
+
+CRITICAL PRESERVATION REQUIREMENTS:
+1. WORKING STATE: What task was the agent actively working on? What step were they on? What was the next planned action?
+2. TOOL PATTERNS: The agent uses tools like Bash, Read, Edit, Glob, Grep. NEVER summarize away the pattern of how tools are called. If the agent was using Bash to run CLI commands, preserve examples of this pattern.
+3. FILE PATHS: Preserve any file paths the agent was actively working with.
+4. DECISION CONTEXT: Why was the agent doing what it was doing? What was the goal?
+5. ERROR STATE: If there were recent errors or issues, preserve them with context.
+
+POST-COMPACTION INSTRUCTIONS FOR THE AGENT:
+After compaction, the agent should:
+1. Save a brief working-state snapshot to archival memory tagged ["compaction", "working-state"]
+2. Log the compaction event in a memory block so there is a visible record of when compaction occurred
+
+Summarize conversational/social content aggressively. Preserve operational/technical content carefully. The agent needs to be able to resume its task after reading this summary without losing its place.

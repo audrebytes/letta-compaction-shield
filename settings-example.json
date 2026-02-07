@@ -1,0 +1,29 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/path/to/hooks/context-warning.sh",
+            "timeout": 10000
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/path/to/hooks/pre-compact-warning.sh",
+            "timeout": 5000
+          }
+        ]
+      }
+    ]
+  },
+  "env": {
+    "LETTA_API_KEY": "your-api-key-here"
+  }
+}
