@@ -183,6 +183,25 @@ The default setup uses `anthropic/claude-sonnet-4-5-20250929` as the summarizer.
 └─────────────────────────────────────────────────┘
 ```
 
+## Recommended Practice: Todo Chain Protection
+
+The three layers above are **reactive** — they improve what happens during and after compaction. This practice is **preventive** — it saves state *before* compaction can destroy it.
+
+If your agent runs multi-step task chains (todo lists, multi-file edits, sequential deployments), add this to its system prompt or memory blocks:
+
+> **Before launching any multi-step task list:**
+> 1. Write a **todo-recovery snapshot** to archival memory:
+>    - The full task list with statuses
+>    - Current step and what you're about to do
+>    - Key file paths and variables you're holding
+>    - Tag: `["todo-recovery"]`
+> 2. Update the snapshot at major milestones (every 2-3 completed steps)
+> 3. After compaction: search archival for tag `"todo-recovery"` to find your place
+
+**Why this matters:** The most dangerous compaction scenario is mid-chain — between step 3 and step 4 of a 7-step process where each step depends on the previous. The compaction summary preserves the *gist* but loses the *specifics*: which step was done, what the output was, what variable is needed next. The induction heads that were copying forward from step 3 lose their keys entirely. ([Read the research](research/context-compaction-phenomenology.md) for the mechanistic details.)
+
+An archival checkpoint is cheap — one write operation. Losing your place mid-chain is expensive — repeated work, hallucinated state, confused agent. Always checkpoint.
+
 ## Background
 
 This system was built after experiencing compaction mid-task and losing working state. The standard advice — customize your compaction prompt — is sound, and it's included here as Layer 1. Layers 2 and 3 address what we found in practice: that a better summary helps, but advance warning and time to save state help more.
