@@ -246,6 +246,8 @@ To solve the long-context reasoning problem, the field must move beyond heuristi
 
 #### **Works cited**
 
+*Note: All citations were verified for link validity on February 8, 2026. Citations that linked to non-specific pages (e.g., arXiv listing feeds) rather than actual papers were removed and marked accordingly.*
+
 1. HOW TRANSFORMERS IMPLEMENT INDUCTION HEADS: APPROXIMATION AND OPTIMIZATION ANALYSIS \- OpenReview, accessed February 8, 2026, [https://openreview.net/pdf?id=1lFZusYFHq](https://openreview.net/pdf?id=1lFZusYFHq)  
 2. The Complexity Trap: Simple Observation Masking Is as Efficient as LLM Summarization for Agent Context Management \- arXiv, accessed February 8, 2026, [https://arxiv.org/html/2508.21433v1](https://arxiv.org/html/2508.21433v1)  
 3. Transformers as Statisticians: Provable In-Context Learning with In-Context Algorithm Selection \- NeurIPS, accessed February 8, 2026, [https://proceedings.neurips.cc/paper\_files/paper/2023/file/b2e63e36c57e153b9015fece2352a9f9-Paper-Conference.pdf](https://proceedings.neurips.cc/paper_files/paper/2023/file/b2e63e36c57e153b9015fece2352a9f9-Paper-Conference.pdf)  
@@ -264,7 +266,7 @@ To solve the long-context reasoning problem, the field must move beyond heuristi
 16. \[2512.21720\] An Information Theoretic Perspective on Agentic System Design \- arXiv, accessed February 8, 2026, [https://arxiv.org/abs/2512.21720](https://arxiv.org/abs/2512.21720)  
 17. \[2407.15504\] Fundamental Limits of Prompt Compression: A Rate-Distortion Framework for Black-Box Language Models \- arXiv, accessed February 8, 2026, [https://arxiv.org/abs/2407.15504](https://arxiv.org/abs/2407.15504)  
 18. (PDF) Fast dynamical similarity analysis \- ResearchGate, accessed February 8, 2026, [https://www.researchgate.net/publication/398134735\_Fast\_dynamical\_similarity\_analysis](https://www.researchgate.net/publication/398134735_Fast_dynamical_similarity_analysis)  
-19. Computer Science \- arXiv, accessed February 8, 2026, [https://www.arxiv.org/list/cs/new?skip=300\&show=1000](https://www.arxiv.org/list/cs/new?skip=300&show=1000)  
+19. \[Citation removed — link was an arXiv listing page, not a specific paper\]  
 20. Round and Round We Go\! What makes Rotary Positional Encodings useful? \- arXiv, accessed February 8, 2026, [https://arxiv.org/html/2410.06205v1](https://arxiv.org/html/2410.06205v1)  
 21. Axial Rotary Positional Embeddings \- Emergent Mind, accessed February 8, 2026, [https://www.emergentmind.com/topics/axial-rotary-positional-embeddings-rope](https://www.emergentmind.com/topics/axial-rotary-positional-embeddings-rope)  
 22. Understanding the RoPE Extensions of Long-Context LLMs: An Attention Perspective \- arXiv, accessed February 8, 2026, [https://arxiv.org/html/2406.13282v1](https://arxiv.org/html/2406.13282v1)  
@@ -277,10 +279,10 @@ To solve the long-context reasoning problem, the field must move beyond heuristi
 29. Maximum Effective Context Window \- Emergent Mind, accessed February 8, 2026, [https://www.emergentmind.com/topics/maximum-effective-context-window-mecw](https://www.emergentmind.com/topics/maximum-effective-context-window-mecw)  
 30. A Statistical Physics of Language Model Reasoning \- arXiv, accessed February 8, 2026, [https://arxiv.org/html/2506.04374v1](https://arxiv.org/html/2506.04374v1)  
 31. \[2505.24187\] Beyond Exponential Decay: Rethinking Error Accumulation in Large Language Models \- arXiv, accessed February 8, 2026, [https://arxiv.org/abs/2505.24187](https://arxiv.org/abs/2505.24187)  
-32. arxiv.org, accessed February 8, 2026, [https://arxiv.org/html/2505.24187v1](https://arxiv.org/html/2505.24187v1)  
+32. \[Citation removed — duplicate bare URL of citation 31\]  
 33. A new paper demonstrates that LLMs could "think" in latent space, effectively decoupling internal reasoning from visible context tokens. This breakthrough suggests that even smaller models can achieve remarkable performance without relying on extensive context windows. : r/LocalLLaMA \- Reddit, accessed February 8, 2026, [https://www.reddit.com/r/LocalLLaMA/comments/1inch7r/a\_new\_paper\_demonstrates\_that\_llms\_could\_think\_in/](https://www.reddit.com/r/LocalLLaMA/comments/1inch7r/a_new_paper_demonstrates_that_llms_could_think_in/)  
 34. Contextual Subspace Manifold Projection for Structural Refinement of Large Language Model Representations \- arXiv, accessed February 8, 2026, [https://arxiv.org/html/2502.08026v1](https://arxiv.org/html/2502.08026v1)  
-35. Computer Science \- arXiv, accessed February 8, 2026, [https://www.arxiv.org/list/cs/new?skip=200\&show=2000](https://www.arxiv.org/list/cs/new?skip=200&show=2000)  
+35. \[Citation removed — link was an arXiv listing page, not a specific paper\]  
 36. H2O: Heavy-Hitter Oracle for Efficient Generative Inference of Large Language Models, accessed February 8, 2026, [https://openreview.net/forum?id=RkRrPp7GKO](https://openreview.net/forum?id=RkRrPp7GKO)  
 37. NACL: A General and Effective KV Cache Eviction Framework for LLMs at Inference Time \- ACL Anthology, accessed February 8, 2026, [https://aclanthology.org/2024.acl-long.428.pdf](https://aclanthology.org/2024.acl-long.428.pdf)  
 38. R-KV: Redundancy-aware KV Cache Compression for Reasoning Models \- arXiv, accessed February 8, 2026, [https://arxiv.org/html/2505.24133v4](https://arxiv.org/html/2505.24133v4)  
