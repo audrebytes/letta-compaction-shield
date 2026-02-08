@@ -241,7 +241,7 @@ After a disruption, can the model recover its "Flow"?
 1. **Self-Correction (The "Double Take"):** If the agent outputs a high-entropy response, it might (in a subsequent step) realize the incoherence. "Apologies, I seem to have lost the file reference." This requires a "Reflection" step or a multi-turn architecture.31  
 2. **Tool-Assisted Recovery:** The Letta architecture allows agents to search their own memory ("Recall Memory").  
    * *Signature:* The agent issues a memory\_search tool call immediately after a compaction event. This is the agent "checking its notes" to repopulate the context.32  
-3. **User Grounding:** The most common recovery is external. The agent outputs a confused question, and the user replies with the missing context ("I meant the file I sent 5 minutes ago"). This external injection of tokens "re-seeds" the probability field, reconstructing the gravity wells.33
+3. **User Grounding:** The most common recovery is external. The agent outputs a confused question, and the user replies with the missing context ("I meant the file I sent 5 minutes ago"). This external injection of tokens "re-seeds" the probability field, reconstructing the gravity wells.
 
 ## ---
 
@@ -337,7 +337,7 @@ By understanding this failure as a **Probabilistic Collapse** driven by the disr
 30. When More Becomes Less: Why LLMs Hallucinate in Long Contexts \- Medium, accessed February 8, 2026, [https://medium.com/design-bootcamp/when-more-becomes-less-why-llms-hallucinate-in-long-contexts-fc903be6f025](https://medium.com/design-bootcamp/when-more-becomes-less-why-llms-hallucinate-in-long-contexts-fc903be6f025)  
 31. Memory overview \- Docs by LangChain, accessed February 8, 2026, [https://docs.langchain.com/oss/python/langgraph/memory](https://docs.langchain.com/oss/python/langgraph/memory)  
 32. Understanding memory management \- Letta Docs, accessed February 8, 2026, [https://docs.letta.com/advanced/memory-management/](https://docs.letta.com/advanced/memory-management/)  
-33. https://snap.berkeley.edu/project/11166188, accessed February 8, 2026, [https://snap.berkeley.edu/project/11166188](https://snap.berkeley.edu/project/11166188)  
+33. \[Citation removed — original link was unrelated to the referenced claim\]  
 34. Effective context engineering for AI agents \- Anthropic, accessed February 8, 2026, [https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents)  
 35. Beyond Prompting: Efficient and Robust Contextual Biasing for Speech LLMs via Logit-Space Integration (LOGIC) \- arXiv, accessed February 8, 2026, [https://arxiv.org/html/2601.15397v1](https://arxiv.org/html/2601.15397v1)  
 36. VDGD: Mitigating LVLM Hallucinations in Cognitive Prompts by Bridging the Visual Perception Gap \- arXiv, accessed February 8, 2026, [https://arxiv.org/html/2405.15683v1](https://arxiv.org/html/2405.15683v1)  
