@@ -9,7 +9,11 @@ CRITICAL PRESERVATION REQUIREMENTS:
 
 POST-COMPACTION INSTRUCTIONS FOR THE AGENT:
 After compaction, the agent should:
-1. Save a brief working-state snapshot to archival memory tagged ["compaction", "working-state"]
-2. Log the compaction event in a memory block so there is a visible record of when compaction occurred
+1. Save a brief working-state snapshot to archival memory tagged ["compaction", "working-state"]. Archival memory is permanent and always available — this is the reliable recovery path.
+2. Check for a memory block labeled "compaction-event-log". If it exists:
+   - Add a new entry at the TOP of the block: "compacted: <datetime UTC> (<msgs_before>→<msgs_after> msgs, <tokens_before>→<tokens_after> tokens)"
+   - Use the compaction stats from the system alert if available.
+   - If the block is near its character limit, remove the oldest entry (bottom) before adding the new one (FIFO).
+   - If no such block exists, skip this step — archival is sufficient.
 
 Summarize conversational/social content aggressively. Preserve operational/technical content carefully. The agent needs to be able to resume its task after reading this summary without losing its place.
