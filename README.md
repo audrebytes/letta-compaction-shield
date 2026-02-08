@@ -3,6 +3,8 @@
 A three-layer protection system for Letta agents against context compaction data loss.
 
 > **📄 [Read the research: "The Phenomenology of Context Collapse"](research/context-compaction-phenomenology.md)** — A mechanistic and probabilistic analysis of what happens inside a Transformer when context compaction fires mid-task. Covers entropy spikes, induction head circuit failure, KV cache eviction, and the behavioral signatures of post-compaction hallucination. If you want to understand *why* compaction breaks agents, start here.
+>
+> **📄 [Read the theory: "Failure Modes in LLM Reasoning Chains Induced by Context Compaction"](research/compaction-theory-reasoning-chains.md)** — Pure mathematical and mechanistic analysis of what happens when compaction interrupts multi-step reasoning. Covers Induction Head circuit disruption, Data Processing Inequality bounds on summarization, RoPE positional encoding failures under index shifting, and Lyapunov stability analysis proving reasoning chains are chaotic dynamical systems where any compaction noise guarantees eventual divergence. 42 citations.
 
 ## The Problem
 
