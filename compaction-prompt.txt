@@ -16,4 +16,9 @@ After compaction, the agent should:
    - If the block is near its character limit, remove the oldest entry (bottom) before adding the new one (FIFO).
    - If no such block exists, skip this step — archival is sufficient.
 
-Summarize conversational/social content aggressively. Preserve operational/technical content carefully. The agent needs to be able to resume its task after reading this summary without losing its place.
+CONTENT PRIORITY (customize to your agent's purpose):
+- TECHNICAL: Tool patterns, file paths, commands, error states, API patterns — always preserve.
+- RELATIONAL: Corrections the user made, behavioral insights, trust dynamics, emotional context that shaped decisions — preserve when the agent's role involves ongoing relationship. Summarize if the agent is purely task-execution.
+- CONVERSATIONAL: Greetings, small talk, transitions — safe to summarize aggressively.
+
+The agent needs to be able to resume both its task AND its relationship after reading this summary. If the agent only does tasks, the relationship line doesn't apply — but if the agent works with the same human over time, relational context is operational context.
