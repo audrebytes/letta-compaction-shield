@@ -2,6 +2,8 @@
 
 A three-layer protection system for Letta agents against context compaction data loss.
 
+> **📄 [Read the research: "The Phenomenology of Context Collapse"](research/context-compaction-phenomenology.md)** — A mechanistic and probabilistic analysis of what happens inside a Transformer when context compaction fires mid-task. Covers entropy spikes, induction head circuit failure, KV cache eviction, and the behavioral signatures of post-compaction hallucination. If you want to understand *why* compaction breaks agents, start here.
+
 ## The Problem
 
 When a Letta agent's context window fills up, **compaction** fires — a separate model call summarizes the conversation history to free up space. The agent wakes up with someone else's summary and a message saying "prior messages have been hidden."
@@ -19,9 +21,14 @@ Having a map in your pocket doesn't mean you know where you are when someone dro
 
 Three layers, using Letta's own API and hook system. No platform changes needed.
 
-### Layer 1: Custom Compaction Prompt
+### Layer 1: Custom Compaction Prompt (v2)
 
 Replaces the default summarizer instructions with a prompt that explicitly tells the compaction model what to preserve: working state, tool patterns, file paths, decision context, and error state.
+
+**v2 additions:**
+- **Structured recovery header** — every compaction summary starts with a `## WORKING STATE` block containing status, last action, next action, context, and key file paths
+- **Post-compaction recovery instructions** — embedded in every summary, telling the agent to save to archival memory (tagged `compaction-recovery`), search for prior recovery entries, and update the event log *before* responding
+- **Architecture note** — clarifies that memory blocks are never compacted (only conversation history is summarized), preventing the summarizer from wasting tokens on already-pinned information
 
 ### Layer 2: Context Warning Hook (UserPromptSubmit)
 
@@ -116,8 +123,9 @@ Add the hook entries to your `~/.letta/settings.json` (see `settings-example.jso
 **3. Apply compaction settings to agents:**
 ```bash
 export LETTA_API_KEY="your-key-here"
-./apply-compaction-settings.sh          # apply to all agents
-./apply-compaction-settings.sh --dry-run  # preview first
+./apply-compaction-settings.sh              # apply to new agents only
+./apply-compaction-settings.sh --force      # upgrade all agents (overwrites existing prompt)
+./apply-compaction-settings.sh --dry-run    # preview first
 ```
 
 ## Configuration

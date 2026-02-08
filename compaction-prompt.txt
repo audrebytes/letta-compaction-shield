@@ -7,18 +7,36 @@ CRITICAL PRESERVATION REQUIREMENTS:
 4. DECISION CONTEXT: Why was the agent doing what it was doing? What was the goal?
 5. ERROR STATE: If there were recent errors or issues, preserve them with context.
 
-POST-COMPACTION INSTRUCTIONS FOR THE AGENT:
-After compaction, the agent should:
-1. Save a brief working-state snapshot to archival memory tagged ["compaction", "working-state"]. Archival memory is permanent and always available — this is the reliable recovery path.
-2. Check for a memory block labeled "compaction-event-log". If it exists:
-   - Add a new entry at the TOP of the block: "compacted: <datetime UTC> (<msgs_before>→<msgs_after> msgs, <tokens_before>→<tokens_after> tokens)"
-   - Use the compaction stats from the system alert if available.
-   - If the block is near its character limit, remove the oldest entry (bottom) before adding the new one (FIFO).
-   - If no such block exists, skip this step — archival is sufficient.
+IMPORTANT ARCHITECTURE NOTE:
+Memory blocks (core memory) are NEVER affected by compaction. They remain intact. Only the conversation message history is being summarized. Do not worry about preserving information that is already in the agent's memory blocks.
 
-CONTENT PRIORITY (customize to your agent's purpose):
+CONTENT PRIORITY:
 - TECHNICAL: Tool patterns, file paths, commands, error states, API patterns — always preserve.
-- RELATIONAL: Corrections the user made, behavioral insights, trust dynamics, emotional context that shaped decisions — preserve when the agent's role involves ongoing relationship. Summarize if the agent is purely task-execution.
+- RELATIONAL: Corrections the user made, behavioral insights, trust dynamics, emotional context that shaped decisions — preserve when relevant to ongoing work.
 - CONVERSATIONAL: Greetings, small talk, transitions — safe to summarize aggressively.
 
-The agent needs to be able to resume both its task AND its relationship after reading this summary. If the agent only does tasks, the relationship line doesn't apply — but if the agent works with the same human over time, relational context is operational context.
+OUTPUT FORMAT:
+Your summary MUST begin with the following header block (fill in the values):
+
+## WORKING STATE: [brief description of current task] 🎯
+**Status**: [what was happening when compaction triggered]
+**Last Action**: [the most recent thing the agent did]
+**Next Action**: [what the agent was about to do next]
+**Context**: [why this work matters / what prompted it]
+**Key File Paths**: [list any active file paths]
+
+Then follow with the narrative summary of the conversation.
+
+Your summary MUST end with this exact block:
+
+---
+**POST-COMPACTION RECOVERY INSTRUCTIONS:**
+You have just been compacted. Your memory blocks are intact but your conversation history has been summarized above. Take these steps IN ORDER:
+1. Read this summary carefully — it contains your working state.
+2. Save this summary to archival memory: `archival_memory_insert(content="<this summary>", tags=["compaction-recovery"])`
+3. Search archival for prior recovery state: `archival_memory_search(query="compaction recovery working state", tags=["compaction-recovery"], top_k=3)`
+4. Check your `compaction-event-log` memory block and add an entry at the TOP with the compaction timestamp and stats.
+5. THEN respond to whatever the user said.
+---
+
+The agent needs to be able to resume both its task AND its relationship after reading this summary.

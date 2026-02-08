@@ -20,12 +20,14 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DRY_RUN=false
+FORCE=false
 PROMPT_FILE="$SCRIPT_DIR/compaction-prompt.txt"
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
         --dry-run) DRY_RUN=true; shift ;;
+        --force) FORCE=true; shift ;;
         --prompt) PROMPT_FILE="$2"; shift 2 ;;
         *) echo "Unknown option: $1"; exit 1 ;;
     esac
@@ -104,8 +106,8 @@ for key in "${KEYS[@]}"; do
         
         total_agents=$((total_agents + 1))
         
-        if [ "$current_prompt" != "null" ] && [ "$current_prompt" != "" ]; then
-            echo "  [$agent_name] Already has custom compaction prompt — skipping"
+        if [ "$current_prompt" != "null" ] && [ "$current_prompt" != "" ] && ! $FORCE; then
+            echo "  [$agent_name] Already has custom compaction prompt — skipping (use --force to overwrite)"
             total_skipped=$((total_skipped + 1))
             continue
         fi
