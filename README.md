@@ -32,12 +32,14 @@ Replaces the default summarizer instructions with a prompt that explicitly tells
 - **Post-compaction recovery instructions** — embedded in every summary, telling the agent to save to archival memory (tagged `compaction-recovery`), search for prior recovery entries, and update the event log *before* responding
 - **Architecture note** — clarifies that memory blocks are never compacted (only conversation history is summarized), preventing the summarizer from wasting tokens on already-pinned information
 
-### Layer 2: Context Warning Hook (UserPromptSubmit)
+### Layer 2: Context Warning Hook v2 (UserPromptSubmit)
 
-A shell script that runs before each user message. Checks the agent's message count via API and injects a warning when context is filling up:
+A shell script that runs before each user message. Queries the Letta API for the agent's actual context window size, message count, and memory block sizes, then calculates dynamic thresholds:
 
-- **Warning** at ~70% capacity (85 messages): "Consider saving your working state"
-- **Critical** at ~85% capacity (110 messages): "Save your state NOW — compaction is imminent"
+- **Warning** at ~70% estimated capacity: "Consider saving your working state"
+- **Critical** at ~85% estimated capacity: "Save your state NOW — compaction is imminent"
+
+**v2 improvements:** No more hardcoded message thresholds. The hook now reads the agent's `context_window` from `llm_config`, measures total block character usage, estimates token consumption, and calculates percentage-based warnings that work correctly whether your agent has a 100k, 200k, or 1M token window. Falls back to fixed thresholds if the API call fails.
 
 The warning tells the agent to save to **archival memory** — permanent, searchable storage that survives compaction completely intact. This is different from the compaction summary, which is lossy by design.
 
@@ -138,8 +140,8 @@ export LETTA_API_KEY="your-key-here"
 |----------|-------------|---------|
 | `LETTA_API_KEY` | Your Letta API key | (required) |
 | `LETTA_API_KEYS` | Comma-separated keys for multiple accounts | — |
-| `CONTEXT_WARN_THRESHOLD` | Message count for warning | 85 |
-| `CONTEXT_CRIT_THRESHOLD` | Message count for critical warning | 110 |
+| `CONTEXT_WARN_THRESHOLD` | Message count fallback for warning (used if API fails) | 85 |
+| `CONTEXT_CRIT_THRESHOLD` | Message count fallback for critical (used if API fails) | 110 |
 
 ### Custom Compaction Prompt
 
@@ -162,8 +164,8 @@ The default setup uses `anthropic/claude-sonnet-4-5-20250929` as the summarizer.
 │                  Agent Context                   │
 │                                                  │
 │  ┌─── Layer 2: UserPromptSubmit Hook ──────┐    │
-│  │ Checks message count before each turn    │    │
-│  │ Warns at 85 msgs, critical at 110 msgs   │    │
+│  │ Queries API for real context window size   │    │
+│  │ Dynamic thresholds: 70% warn, 85% crit   │    │
 │  │ Agent saves to archival memory            │    │
 │  └──────────────────────────────────────────┘    │
 │                      │                           │
