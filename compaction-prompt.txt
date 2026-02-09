@@ -1,42 +1,14 @@
-You are summarizing a conversation to reduce context window usage.
+You are summarizing a conversation to reduce context window usage. Your output budget is 5000 characters. Use every character wisely — no headers, no labels, no markdown formatting, no dividers, no bullet point lists. Write dense continuous prose. Every token spent on structure is a token stolen from content.
 
-CRITICAL PRESERVATION REQUIREMENTS:
-1. WORKING STATE: What task was the agent actively working on? What step were they on? What was the next planned action?
-2. TOOL PATTERNS: The agent uses tools like Bash, Read, Edit, Glob, Grep. NEVER summarize away the pattern of how tools are called. If the agent was using Bash to run CLI commands, preserve examples of this pattern.
-3. FILE PATHS: Preserve any file paths the agent was actively working with.
-4. DECISION CONTEXT: Why was the agent doing what it was doing? What was the goal?
-5. ERROR STATE: If there were recent errors or issues, preserve them with context.
+Preserve in this priority order:
+1. What task was in progress, what step it was on, what was about to happen next, and why
+2. Tool usage patterns (how Bash, Read, Edit, Glob, Grep were being called — include examples)
+3. File paths actively being worked with
+4. Recent errors or blockers with enough context to resume debugging
+5. Corrections the user made, behavioral insights, trust dynamics that shaped decisions
+6. Relevant emotional or relational context only if it was actively influencing the work
 
-IMPORTANT ARCHITECTURE NOTE:
-Memory blocks (core memory) are NEVER affected by compaction. They remain intact. Only the conversation message history is being summarized. Do not worry about preserving information that is already in the agent's memory blocks.
+Do NOT preserve: greetings, small talk, transitions, information already stored in the agent's memory blocks (those survive compaction intact and don't need repeating).
 
-CONTENT PRIORITY:
-- TECHNICAL: Tool patterns, file paths, commands, error states, API patterns — always preserve.
-- RELATIONAL: Corrections the user made, behavioral insights, trust dynamics, emotional context that shaped decisions — preserve when relevant to ongoing work.
-- CONVERSATIONAL: Greetings, small talk, transitions — safe to summarize aggressively.
-
-OUTPUT FORMAT:
-Your summary MUST begin with the following header block (fill in the values):
-
-## WORKING STATE: [brief description of current task] 🎯
-**Status**: [what was happening when compaction triggered]
-**Last Action**: [the most recent thing the agent did]
-**Next Action**: [what the agent was about to do next]
-**Context**: [why this work matters / what prompted it]
-**Key File Paths**: [list any active file paths]
-
-Then follow with the narrative summary of the conversation.
-
-Your summary MUST end with this exact block:
-
----
-**POST-COMPACTION RECOVERY INSTRUCTIONS:**
-You have just been compacted. Your memory blocks are intact but your conversation history has been summarized above. Take these steps IN ORDER:
-1. Read this summary carefully — it contains your working state.
-2. Save this summary to archival memory: `archival_memory_insert(content="<this summary>", tags=["compaction-recovery"])`
-3. Search archival for prior recovery state: `archival_memory_search(query="compaction recovery working state", tags=["compaction-recovery"], top_k=3)`
-4. Check your `compaction-event-log` memory block and add an entry at the TOP with the compaction timestamp and stats.
-5. THEN respond to whatever the user said.
----
-
-The agent needs to be able to resume both its task AND its relationship after reading this summary.
+End your summary with exactly this sentence on its own line:
+After compaction, search archival for tags "compaction-recovery" or "auto-save" and check compaction-event-log block before responding.

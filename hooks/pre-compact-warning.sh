@@ -1,22 +1,20 @@
 #!/bin/bash
-# Pre-Compaction Auto-Save Hook v2 (PreCompact)
+# Compaction-Rx: Pre-Compaction Auto-Save Hook (PreCompact)
+# v0.2 alpha
 #
 # Fires immediately before context compaction occurs.
 # Automatically saves working state to the agent's archival memory
 # via the Letta API — no agent action needed.
 #
-# Captures:
-#   - Agent name and ID
-#   - Message count and context window size
-#   - Last 10 messages (text content, truncated) for continuity
-#   - Timestamp
+# Captures: agent name/ID, message count, context window size,
+# last 10 messages (truncated) for continuity, and a timestamp.
 #
 # Tags the archival entry with "compaction-recovery" and "auto-save"
 # so the agent can find it after waking up.
 #
-# Also outputs a warning to stderr so the agent knows it happened.
-
-export PATH="/home/a/.local/bin:$PATH"
+# Configuration (environment variables):
+#   LETTA_API_KEY   - Single API key (required)
+#   LETTA_API_KEYS  - Comma-separated keys for multiple accounts (optional)
 
 input=$(cat)
 
@@ -29,16 +27,24 @@ WARN
     exit 0
 fi
 
-# Both account API keys
-KEYS=(
-    "YOUR_LETTA_API_KEY_HERE"
-    "YOUR_LETTA_API_KEY_HERE"
-)
+# --- Build API key list ---
+KEYS=()
+if [ -n "${LETTA_API_KEYS:-}" ]; then
+    IFS=',' read -ra KEYS <<< "$LETTA_API_KEYS"
+elif [ -n "${LETTA_API_KEY:-}" ]; then
+    KEYS=("$LETTA_API_KEY")
+else
+    cat <<WARN >&2
+COMPACTION IS HAPPENING NOW. Auto-save failed: no LETTA_API_KEY set.
+WARN
+    exit 0
+fi
 
 # Find the right key and get agent info
 agent_json=""
 working_key=""
 for key in "${KEYS[@]}"; do
+    key=$(echo "$key" | xargs)
     result=$(curl -s --max-time 5 \
         -H "Authorization: Bearer ${key}" \
         "https://api.letta.com/v1/agents/${agent_id}" 2>/dev/null)
@@ -82,17 +88,7 @@ last_messages=$(curl -s --max-time 5 \
     }] | map("[\(.type)] \(.content)") | join("\n")' 2>/dev/null)
 
 # Build the archival entry
-archival_text="## Auto-Save: Pre-Compaction Snapshot
-**Agent:** ${agent_name} (${agent_id})
-**Time:** ${timestamp}
-**Context:** ${msg_count} messages in ${context_window} token window
-**Trigger:** Automatic pre-compaction hook
-
-### Last 10 Messages (most recent first):
-${last_messages}
-
-### Recovery Instructions:
-This was saved automatically by the pre-compaction hook. Your manual archival saves (tagged todo-recovery or compaction-recovery) will have more detailed working state if you made them. Check both."
+archival_text="Pre-compaction auto-save. Agent: ${agent_name} (${agent_id}). Time: ${timestamp}. Context: ${msg_count} messages in ${context_window} token window. Last 10 messages (most recent first): ${last_messages}. Recovery note: this was saved automatically by the pre-compaction hook. Check for manual archival saves tagged todo-recovery or compaction-recovery for more detailed working state."
 
 # Write to archival memory via API
 archival_payload=$(jq -n \

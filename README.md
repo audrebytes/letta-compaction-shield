@@ -1,74 +1,59 @@
-# Letta Compaction Shield
+# Compaction-Rx (v0.2 alpha)
 
-A three-layer protection system for Letta agents against context compaction data loss.
+**Lightweight** compaction protection for [Letta](https://letta.com) agents using shell scripts, curl, and jq. No Python required.
 
-> **📄 [Read the research: "The Phenomenology of Context Collapse"](research/context-compaction-phenomenology.md)** — A mechanistic and probabilistic analysis of what happens inside a Transformer when context compaction fires mid-task. Covers entropy spikes, induction head circuit failure, KV cache eviction, and the behavioral signatures of post-compaction hallucination. If you want to understand *why* compaction breaks agents, start here.
->
-> **📄 [Read the theory: "Failure Modes in LLM Reasoning Chains Induced by Context Compaction"](research/compaction-theory-reasoning-chains.md)** — Pure mathematical and mechanistic analysis of what happens when compaction interrupts multi-step reasoning. Covers Induction Head circuit disruption, Data Processing Inequality bounds on summarization, RoPE positional encoding failures under index shifting, and Lyapunov stability analysis proving reasoning chains are chaotic dynamical systems where any compaction noise guarantees eventual divergence.
+> ⚠️ **Alpha software.** This works for us but hasn't been widely tested. Token estimates are rough approximations — not exact measurements. See [Limitations](#limitations) for details.
 
-## The Problem
+## What This Solves
 
-When a Letta agent's context window fills up, **compaction** fires — a separate model call summarizes the conversation history to free up space. The agent wakes up with someone else's summary and a message saying "prior messages have been hidden."
+When a Letta agent's context window fills up, **compaction** fires — a separate model call summarizes the conversation history to free space. The agent wakes up with someone else's summary replacing its conversation history.
 
-With default settings, compaction loses:
-
-- **Working state** — what step the agent was on, what it was about to do next
-- **Tool patterns** — in-context examples of how to call tools correctly (leading to hallucinated tool names)
-- **File paths** — specific paths the agent was actively working with
+With default settings, compaction often loses:
+- **Working state** — what step the agent was on, what was next
+- **Tool patterns** — how the agent was calling tools (leading to hallucinated tool names)
+- **File paths** — specific paths the agent was actively using
 - **Decision context** — why the agent was doing what it was doing
 
-Having a map in your pocket doesn't mean you know where you are when someone drops you in an unfamiliar neighborhood. The information in memory blocks is still there after compaction — but the *attention patterns* that made it salient are gone.
+Compaction-Rx adds four layers of protection using Letta's own API and hook system. No platform changes needed. Just shell scripts.
 
-## The Solution
+## The Four Layers
 
-Four layers, using Letta's own API and hook system. No platform changes needed.
+### 1. Custom Compaction Prompt
 
-### Layer 1: Custom Compaction Prompt (v2)
+Replaces the default summarizer instructions with a prompt that tells the compaction model what to preserve and — critically — tells it the output budget upfront so it doesn't waste tokens on formatting.
 
-Replaces the default summarizer instructions with a prompt that explicitly tells the compaction model what to preserve: working state, tool patterns, file paths, decision context, and error state.
+The default uses `anthropic/claude-sonnet-4-5-20250929` as the summarizer. Sonnet typically follows formatting instructions well, but **you may find other models work better for your agents and workflow.** You can change the model in `apply-compaction-settings.sh`.
 
-**v2 additions:**
-- **Structured recovery header** — every compaction summary starts with a `## WORKING STATE` block containing status, last action, next action, context, and key file paths
-- **Post-compaction recovery instructions** — embedded in every summary, telling the agent to save to archival memory (tagged `compaction-recovery`), search for prior recovery entries, and update the event log *before* responding
-- **Architecture note** — clarifies that memory blocks are never compacted (only conversation history is summarized), preventing the summarizer from wasting tokens on already-pinned information
+### 2. Context Warning Hook (UserPromptSubmit)
 
-### Layer 2: Context Warning Hook v2 (UserPromptSubmit)
+Runs before each user message. Queries the Letta API for the agent's context window size, memory block sizes, and message count, then **estimates** how full the context is.
 
-A shell script that runs before each user message. Queries the Letta API for the agent's actual context window size, message count, and memory block sizes, then calculates dynamic thresholds:
+- **Warning** at ~70% estimated capacity (configurable)
+- **Critical** at ~85% estimated capacity (configurable)
 
-- **Warning** at ~70% estimated capacity: "Consider saving your working state"
-- **Critical** at ~85% estimated capacity: "Save your state NOW — compaction is imminent"
+The warning is injected as a `<system-reminder>` the agent sees alongside the user's message, telling it to save working state to archival memory.
 
-**v2 improvements:** No more hardcoded message thresholds. The hook now reads the agent's `context_window` from `llm_config`, measures total block character usage, estimates token consumption, and calculates percentage-based warnings that work correctly whether your agent has a 100k, 200k, or 1M token window. Falls back to fixed thresholds if the API call fails.
+### 3. Pre-Compaction Auto-Save (PreCompact)
 
-The warning tells the agent to save to **archival memory** — permanent, searchable storage that survives compaction completely intact. This is different from the compaction summary, which is lossy by design.
+Fires immediately before compaction. Automatically saves a snapshot of the agent's state to archival memory via API — the agent doesn't need to do anything. Captures agent info, message count, and the last 10 messages for continuity.
 
-### Layer 3: Pre-Compaction Auto-Save Hook v2 (PreCompact)
+### 4. Post-Compaction Summary Capture (UserPromptSubmit)
 
-Fires immediately before compaction. Can't block it, but now does useful work: queries the Letta API for the agent's info and last 10 messages, then **writes a snapshot directly to the agent's archival memory** via API. No agent action needed — the save happens automatically in the hook itself.
+Built into the context warning hook. Tracks message count between turns. When the count drops significantly (compaction just happened), grabs the compaction summary from the first messages in context and saves it to archival memory — full and untruncated.
 
-### Layer 4: Post-Compaction Summary Capture (UserPromptSubmit)
-
-Built into the context warning hook. Caches each agent's message count between turns. When the count drops by 30+ messages (indicating compaction just happened), the hook:
-
-1. Grabs the compaction summary from the first messages in the new context
-2. Saves the **full, untruncated summary** to archival memory
-3. Tags it `compaction-summary` + `auto-save` for easy retrieval
-
-This solves the truncation problem: compaction summaries are valuable but get lost to future compactions. Now every summary is permanently preserved in archival at full length.
-
-## How Hook Injection Works
-
-Letta Code's hook system injects stderr output from non-blocking hooks as `<system-reminder>` tags the agent sees alongside the user's message. So a shell script that writes to stderr becomes a context-aware early warning system. Exit 0 = non-blocking, message proceeds with the warning appended.
+This solves the truncation problem: compaction summaries are valuable but get lost to future compactions. Now every summary is permanently preserved.
 
 ## Quick Start
 
-### Prerequisites
+### What You Need
 
-- [Letta Code CLI](https://github.com/letta-ai/letta-code) installed and configured
-- `jq` — install with `apt install jq` / `brew install jq`
-- `curl`
-- Your Letta API key(s)
+- [Letta Code CLI](https://github.com/letta-ai/letta-code) installed and working
+- `jq` — a command-line JSON processor
+  - **Mac:** `brew install jq`
+  - **Ubuntu/Debian:** `sudo apt install jq`
+  - **Windows (WSL):** `sudo apt install jq`
+- `curl` (almost certainly already installed)
+- Your Letta API key (find it in your [Letta dashboard](https://app.letta.com))
 
 ### Install
 
@@ -76,9 +61,10 @@ Letta Code's hook system injects stderr output from non-blocking hooks as `<syst
 git clone https://github.com/audrebytes/letta-compaction-shield.git
 cd letta-compaction-shield
 
-# Set your API key(s)
+# Set your API key
 export LETTA_API_KEY="your-key-here"
-# Or for multiple accounts:
+
+# For multiple accounts, use comma-separated keys:
 # export LETTA_API_KEYS="key1,key2"
 
 # Run the installer
@@ -92,7 +78,7 @@ The installer will:
 
 ### Manual Setup
 
-If you prefer to set things up yourself:
+If you'd rather do it yourself:
 
 **1. Copy hooks:**
 ```bash
@@ -101,9 +87,14 @@ cp hooks/context-warning.sh hooks/pre-compact-warning.sh ~/.letta/hooks/
 chmod +x ~/.letta/hooks/*.sh
 ```
 
-**2. Configure settings.json:**
+**2. Set your API key** (add to your `.bashrc`, `.zshrc`, or shell profile):
+```bash
+export LETTA_API_KEY="your-key-here"
+```
 
-Add the hook entries to your `~/.letta/settings.json` (see `settings-example.json`):
+**3. Configure settings.json:**
+
+Add the hook entries to `~/.letta/settings.json` (see `settings-example.json`):
 
 ```json
 {
@@ -134,24 +125,53 @@ Add the hook entries to your `~/.letta/settings.json` (see `settings-example.jso
 }
 ```
 
-**3. Apply compaction settings to agents:**
+⚠️ **Change `/home/you/`** to your actual home directory path.
+
+**4. Apply compaction settings to agents:**
 ```bash
 export LETTA_API_KEY="your-key-here"
 ./apply-compaction-settings.sh              # apply to new agents only
 ./apply-compaction-settings.sh --force      # upgrade all agents (overwrites existing prompt)
-./apply-compaction-settings.sh --dry-run    # preview first
+./apply-compaction-settings.sh --dry-run    # preview what would happen first
 ```
 
 ## Configuration
 
 ### Environment Variables
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `LETTA_API_KEY` | Your Letta API key | (required) |
-| `LETTA_API_KEYS` | Comma-separated keys for multiple accounts | — |
-| `CONTEXT_WARN_THRESHOLD` | Message count fallback for warning (used if API fails) | 85 |
-| `CONTEXT_CRIT_THRESHOLD` | Message count fallback for critical (used if API fails) | 110 |
+All configuration is through environment variables. Set them in your shell profile (`.bashrc`, `.zshrc`) so they persist.
+
+**Required:**
+
+| Variable | Description |
+|----------|-------------|
+| `LETTA_API_KEY` | Your Letta API key |
+| `LETTA_API_KEYS` | Comma-separated keys for multiple accounts (use instead of `LETTA_API_KEY`) |
+
+**Optional — Warning Thresholds:**
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `CRX_WARN_PCT` | `70` | Percentage at which to show a warning |
+| `CRX_CRIT_PCT` | `85` | Percentage at which to show a critical warning |
+
+**Optional — Estimation Tuning:**
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `CRX_TOKENS_PER_MSG` | `400` | Estimated tokens per message. See [Tuning Your Thresholds](#tuning-your-thresholds) |
+| `CRX_CHARS_PER_TOKEN` | `4` | Estimated characters per token |
+| `CRX_OUTPUT_RESERVE` | `8000` | Tokens reserved for model output |
+
+**Optional — Fallback Thresholds:**
+
+Used when the API can't return the agent's context window size (rare):
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `CRX_FALLBACK_WARN` | `85` | Message count for warning |
+| `CRX_FALLBACK_CRIT` | `110` | Message count for critical warning |
+| `CRX_MSG_DROP` | `30` | Message count drop that indicates compaction happened |
 
 ### Custom Compaction Prompt
 
@@ -159,13 +179,86 @@ Edit `compaction-prompt.txt` to customize what the summarizer preserves. The def
 
 ### Compaction Model
 
-The default setup uses `anthropic/claude-sonnet-4-5-20250929` as the summarizer. This is a good balance of quality and cost. You can change this in `apply-compaction-settings.sh`.
+The default uses `anthropic/claude-sonnet-4-5-20250929` as the summarizer. This is a good balance of quality and cost. You can change this in `apply-compaction-settings.sh` — look for the `model` field in the payload.
 
-## What This Doesn't Cover
+Different models have different strengths with instruction-following. If your summaries aren't preserving what you need, trying a different model is a reasonable troubleshooting step.
 
-- **ADE sessions** — hooks are CLI-only, they don't fire in the Letta web interface
-- **New agents** — compaction settings are per-agent. Run `apply-compaction-settings.sh` periodically to catch new agents
-- **Letta Code updates** — if an update resets `settings.json`, you'll need to re-add the hook entries
+## Tuning Your Thresholds
+
+The warning system uses **estimates**, not exact measurements. Here's how to tune it for your setup.
+
+### Understanding the Estimation
+
+The hook estimates context usage like this:
+
+```
+fixed_tokens = (total_block_chars + system_prompt_chars) / CHARS_PER_TOKEN
+available    = context_window - fixed_tokens - OUTPUT_RESERVE
+used         = message_count × TOKENS_PER_MSG
+percentage   = used / available × 100
+```
+
+The biggest source of error is `TOKENS_PER_MSG`. Short back-and-forth exchanges average ~200-300 tokens/message. Long tool-heavy exchanges (code, file contents) can average 600-800+.
+
+### Finding Your Actual Average
+
+If you have the [Letta Python SDK](https://pypi.org/project/letta-client/) installed (`pip install letta-client`), you can get **exact** token counts:
+
+```python
+from letta_client import Letta
+client = Letta(api_key="your-key")
+
+# Get exact token usage for a recent run
+messages = list(client.agents.messages.list(agent_id="agent-xxx", limit=1))
+usage = client.runs.usage.retrieve(run_id=messages[0].run_id)
+
+print(f"Prompt tokens: {usage.prompt_tokens}")
+print(f"Total tokens:  {usage.total_tokens}")
+print(f"Context window: {client.agents.retrieve('agent-xxx').llm_config.context_window}")
+print(f"Usage: {usage.prompt_tokens / client.agents.retrieve('agent-xxx').llm_config.context_window * 100:.0f}%")
+```
+
+Divide `prompt_tokens` by your message count to get your actual tokens-per-message average, then set `CRX_TOKENS_PER_MSG` accordingly.
+
+### Example Configurations
+
+**Conservative (warn early):**
+```bash
+export CRX_WARN_PCT=60
+export CRX_CRIT_PCT=75
+```
+
+**Relaxed (more room before warnings):**
+```bash
+export CRX_WARN_PCT=80
+export CRX_CRIT_PCT=90
+```
+
+**For code-heavy agents (larger messages):**
+```bash
+export CRX_TOKENS_PER_MSG=600
+```
+
+**For chat-style agents (smaller messages):**
+```bash
+export CRX_TOKENS_PER_MSG=250
+```
+
+## Limitations
+
+This is alpha software with known limitations:
+
+- **Estimates, not measurements.** Token usage is calculated from character counts and message counts using rough heuristics (~4 chars/token, ~400 tokens/message). Real token usage depends on content type, language, and tokenizer specifics. Warnings may fire too early or too late. For exact token counts, use the Python SDK (see [Tuning Your Thresholds](#tuning-your-thresholds)).
+
+- **CLI only.** Hooks fire in Letta Code CLI sessions. They don't fire in the ADE web interface.
+
+- **New agents need settings.** Compaction settings are per-agent. Run `apply-compaction-settings.sh` after creating new agents to apply the custom prompt.
+
+- **Letta Code updates may reset hooks.** If a Letta Code update rewrites `settings.json`, you'll need to re-add the hook entries.
+
+- **Summary capture is post-truncation.** The auto-saved compaction summary is captured after `clip_chars` truncation. If the summarizer produced more than 5000 characters, the saved version is still truncated. (We're exploring ways to capture the full output in a future version.)
+
+- **Hook timeout.** Each hook has a timeout (10s for context warning, 5s for pre-compact). If the API is slow, the hook may not complete. The agent session continues normally — you just don't get the warning or auto-save for that turn.
 
 ## Architecture
 
@@ -174,7 +267,7 @@ The default setup uses `anthropic/claude-sonnet-4-5-20250929` as the summarizer.
 │                  Agent Context                   │
 │                                                  │
 │  ┌─── Layer 2: UserPromptSubmit Hook ──────┐    │
-│  │ Queries API for real context window size   │    │
+│  │ Queries API for real context window size  │    │
 │  │ Dynamic thresholds: 70% warn, 85% crit   │    │
 │  │ Detects post-compaction, saves summary    │    │
 │  └──────────────────────────────────────────┘    │
@@ -187,14 +280,13 @@ The default setup uses `anthropic/claude-sonnet-4-5-20250929` as the summarizer.
 │                      ▼                           │
 │  ┌─── Layer 4: Compaction Summary Capture ─┐    │
 │  │ Detects compaction, saves full summary   │    │
-│  │ to archival (untruncated, permanent)     │    │
+│  │ to archival (permanent)                  │    │
 │  └──────────────────────────────────────────┘    │
 │                      │                           │
 │                      ▼                           │
 │  ┌─── Layer 1: Custom Compaction Prompt ───┐    │
-│  │ Tells summarizer what to preserve:       │    │
-│  │ working state, tool patterns, file paths, │    │
-│  │ decision context, error state             │    │
+│  │ Tells summarizer what to preserve        │    │
+│  │ Token-conscious: no wasted formatting    │    │
 │  └──────────────────────────────────────────┘    │
 │                      │                           │
 │                      ▼                           │
@@ -205,9 +297,9 @@ The default setup uses `anthropic/claude-sonnet-4-5-20250929` as the summarizer.
 
 ## Recommended Practice: Todo Chain Protection
 
-The three layers above are **reactive** — they improve what happens during and after compaction. This practice is **preventive** — it saves state *before* compaction can destroy it.
+The four layers above are **reactive**. This practice is **preventive** — it saves state *before* compaction can destroy it.
 
-If your agent runs multi-step task chains (todo lists, multi-file edits, sequential deployments), add this to its system prompt or memory blocks:
+If your agent runs multi-step task chains, add this to its system prompt or memory blocks:
 
 > **Before launching any multi-step task list:**
 > 1. Write a **todo-recovery snapshot** to archival memory:
@@ -218,13 +310,19 @@ If your agent runs multi-step task chains (todo lists, multi-file edits, sequent
 > 2. Update the snapshot at major milestones (every 2-3 completed steps)
 > 3. After compaction: search archival for tag `"todo-recovery"` to find your place
 
-**Why this matters:** The most dangerous compaction scenario is mid-chain — between step 3 and step 4 of a 7-step process where each step depends on the previous. The compaction summary preserves the *gist* but loses the *specifics*: which step was done, what the output was, what variable is needed next. The induction heads that were copying forward from step 3 lose their keys entirely. ([Read the research](research/context-compaction-phenomenology.md) for the mechanistic details.)
+This is cheap insurance — one archival write vs. losing your place mid-chain.
 
-An archival checkpoint is cheap — one write operation. Losing your place mid-chain is expensive — repeated work, hallucinated state, confused agent. Always checkpoint.
+## Research
+
+> **📄 [The Phenomenology of Context Collapse](research/context-compaction-phenomenology.md)** — What happens inside a Transformer when compaction fires mid-task. Covers entropy spikes, induction head circuit failure, KV cache eviction, and behavioral signatures of post-compaction hallucination.
+>
+> **📄 [Failure Modes in LLM Reasoning Chains](research/compaction-theory-reasoning-chains.md)** — Mathematical and mechanistic analysis of compaction interrupting multi-step reasoning. Induction head disruption, Data Processing Inequality bounds, RoPE positional encoding failures, and Lyapunov stability analysis.
 
 ## Background
 
-This system was built after experiencing compaction mid-task and losing working state. The standard advice — customize your compaction prompt — is sound, and it's included here as Layer 1. Layers 2 and 3 address what we found in practice: that a better summary helps, but advance warning and time to save state help more.
+This system was built after experiencing compaction mid-task and losing working state. It's a practical response to a real problem, shared in case it helps others dealing with the same thing.
+
+If you find better thresholds, better estimation methods, or better compaction prompts for your use case — we'd love to hear about it.
 
 ## License
 

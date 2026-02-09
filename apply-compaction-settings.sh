@@ -5,7 +5,7 @@
 # - Custom compaction prompt that preserves working state
 # - Sonnet 4.5 as the summarizer model (cheaper than Opus, good quality)
 # - Sliding window mode keeping 80% recent context
-# - 4000 char clip for compaction summaries
+# - 5000 char clip for compaction summaries
 #
 # Environment variables:
 #   LETTA_API_KEYS  - Comma-separated list of Letta API keys
@@ -128,7 +128,7 @@ print(json.dumps({
         'model': 'anthropic/claude-sonnet-4-5-20250929',
         'mode': 'sliding_window',
         'sliding_window_percentage': 0.2,
-        'clip_chars': 4000
+        'clip_chars': 5000
     }
 }))
 ")

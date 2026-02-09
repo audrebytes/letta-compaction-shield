@@ -1,6 +1,7 @@
 #!/bin/bash
-# Context Window Warning Hook v3 (UserPromptSubmit)
-# 
+# Compaction-Rx: Context Warning + Compaction Detection Hook (UserPromptSubmit)
+# v0.2 alpha
+#
 # Two jobs:
 # 1. COMPACTION DETECTION: Compares current message count to cached count.
 #    If it dropped significantly, compaction just happened. Grabs the summary
@@ -10,13 +11,34 @@
 #    count, calculates dynamic percentage-based thresholds. Warns agent when
 #    context is filling up.
 #
-# Data from API: context_window (tokens), message_ids (count), block char totals
-# Estimate: ~4 chars per token (rough but better than fixed thresholds)
+# IMPORTANT: Token estimates are ROUGH (~4 chars/token, ~400 tokens/message).
+# Real usage may differ significantly. For exact token counts, use the Letta
+# Python SDK: client.runs.usage.retrieve(run_id=...) — see README.
 #
-# Supports both Letta accounts (audre + replyomatic).
+# Configuration (environment variables — set in your shell or .env file):
+#   LETTA_API_KEY       - Single API key (required)
+#   LETTA_API_KEYS      - Comma-separated keys for multiple accounts (optional)
+#   CRX_WARN_PCT        - Warning threshold percentage (default: 70)
+#   CRX_CRIT_PCT        - Critical threshold percentage (default: 85)
+#   CRX_MSG_DROP        - Message count drop to detect compaction (default: 30)
+#   CRX_FALLBACK_WARN   - Fallback message count for warning (default: 85)
+#   CRX_FALLBACK_CRIT   - Fallback message count for critical (default: 110)
+#   CRX_TOKENS_PER_MSG  - Estimated tokens per message (default: 400)
+#   CRX_CHARS_PER_TOKEN - Estimated chars per token (default: 4)
+#   CRX_OUTPUT_RESERVE  - Tokens reserved for model output (default: 8000)
+#
 # Install: Add to ~/.letta/settings.json under hooks.UserPromptSubmit
+# See README for full setup instructions.
 
-export PATH="/home/a/.local/bin:$PATH"
+# --- Configuration ---
+WARN_PCT="${CRX_WARN_PCT:-70}"
+CRIT_PCT="${CRX_CRIT_PCT:-85}"
+MSG_DROP_THRESHOLD="${CRX_MSG_DROP:-30}"
+FALLBACK_WARN="${CRX_FALLBACK_WARN:-85}"
+FALLBACK_CRIT="${CRX_FALLBACK_CRIT:-110}"
+TOKENS_PER_MSG="${CRX_TOKENS_PER_MSG:-400}"
+CHARS_PER_TOKEN="${CRX_CHARS_PER_TOKEN:-4}"
+OUTPUT_RESERVE="${CRX_OUTPUT_RESERVE:-8000}"
 
 CACHE_DIR="/tmp/letta-context-cache"
 mkdir -p "$CACHE_DIR"
@@ -35,16 +57,23 @@ if [ -z "$agent_id" ]; then
     exit 0
 fi
 
-# Both account API keys
-KEYS=(
-    "YOUR_LETTA_API_KEY_HERE"
-    "YOUR_LETTA_API_KEY_HERE"
-)
+# --- Build API key list ---
+# Reads from LETTA_API_KEYS (comma-separated) or LETTA_API_KEY (single)
+KEYS=()
+if [ -n "${LETTA_API_KEYS:-}" ]; then
+    IFS=',' read -ra KEYS <<< "$LETTA_API_KEYS"
+elif [ -n "${LETTA_API_KEY:-}" ]; then
+    KEYS=("$LETTA_API_KEY")
+else
+    # No key configured — can't query API, exit silently
+    exit 0
+fi
 
 # Try each key until one works — get full agent data
 agent_json=""
 working_key=""
 for key in "${KEYS[@]}"; do
+    key=$(echo "$key" | xargs)  # trim whitespace
     result=$(curl -s --max-time 5 \
         -H "Authorization: Bearer ${key}" \
         "https://api.letta.com/v1/agents/${agent_id}" 2>/dev/null)
@@ -80,8 +109,7 @@ if [ -f "$cache_file" ]; then
     prev_count=$(cat "$cache_file" 2>/dev/null)
     if [ -n "$prev_count" ] && [ "$prev_count" -gt 0 ] 2>/dev/null; then
         drop=$(( prev_count - msg_count ))
-        # If message count dropped by 30+, compaction happened
-        if [ "$drop" -gt 30 ]; then
+        if [ "$drop" -gt "$MSG_DROP_THRESHOLD" ]; then
             compaction_detected=true
             timestamp=$(date -u +"%Y-%m-%d %H:%M:%S UTC")
             
@@ -93,13 +121,7 @@ if [ -f "$cache_file" ]; then
                 | jq -r '[.[] | select(.message_type == "system_message" or .message_type == "user_message") | {type: .message_type, content: .content}] | map("[\(.type)]\n\(.content)") | join("\n\n---\n\n")' 2>/dev/null)
             
             if [ -n "$summary_content" ] && [ "$summary_content" != "null" ]; then
-                archival_text="## Compaction Summary (Auto-Saved)
-**Agent:** ${agent_name} (${agent_id})
-**Time:** ${timestamp}
-**Context:** ${prev_count} messages compacted → ${msg_count} remaining (${context_window} token window)
-
-### Summary Content:
-${summary_content}"
+                archival_text="Compaction auto-save. Agent: ${agent_name} (${agent_id}). Time: ${timestamp}. Context: ${prev_count} messages compacted to ${msg_count} remaining (${context_window} token window). Summary content follows. ${summary_content}"
 
                 archival_payload=$(jq -n \
                     --arg text "$archival_text" \
@@ -137,12 +159,12 @@ fi
 
 # Safety: if we couldn't get context_window, fall back to message-count heuristic
 if [ -z "$context_window" ] || [ "$context_window" -eq 0 ] 2>/dev/null; then
-    if [ "$msg_count" -gt 110 ]; then
+    if [ "$msg_count" -gt "$FALLBACK_CRIT" ]; then
         cat <<WARN >&2
 CONTEXT WINDOW CRITICAL (${msg_count} messages, context_window unknown). COMPACTION IS IMMINENT.
 ACTION REQUIRED NOW: Save your current working state to archival memory.
 WARN
-    elif [ "$msg_count" -gt 85 ]; then
+    elif [ "$msg_count" -gt "$FALLBACK_WARN" ]; then
         cat <<WARN >&2
 CONTEXT WINDOW WARNING (${msg_count} messages, context_window unknown). Consider saving state.
 WARN
@@ -151,18 +173,13 @@ WARN
 fi
 
 # Estimate token usage from fixed content (blocks + system prompt)
-# ~4 chars per token is a rough estimate for English text
-fixed_tokens=$(( (block_chars + system_chars) / 4 ))
+fixed_tokens=$(( (block_chars + system_chars) / CHARS_PER_TOKEN ))
 
 # Available tokens for messages = context_window - fixed_tokens - output_reserve
-# Reserve ~8k tokens for model output
-output_reserve=8000
-available_for_messages=$(( context_window - fixed_tokens - output_reserve ))
+available_for_messages=$(( context_window - fixed_tokens - OUTPUT_RESERVE ))
 
-# Estimate tokens per message (observed average: ~300-500 tokens/message)
-# Use 400 as middle estimate
-tokens_per_msg=400
-estimated_msg_tokens=$(( msg_count * tokens_per_msg ))
+# Estimate message tokens
+estimated_msg_tokens=$(( msg_count * TOKENS_PER_MSG ))
 
 # Calculate usage percentage
 if [ "$available_for_messages" -gt 0 ]; then
@@ -172,17 +189,17 @@ else
 fi
 
 # Dynamic thresholds
-if [ "$usage_pct" -gt 85 ]; then
+if [ "$usage_pct" -gt "$CRIT_PCT" ]; then
     cat <<WARN >&2
-CONTEXT WINDOW CRITICAL (~${usage_pct}% capacity, ${msg_count} messages, ${context_window} token window).
+CONTEXT WINDOW CRITICAL (~${usage_pct}% estimated capacity, ${msg_count} messages, ${context_window} token window).
 COMPACTION IS IMMINENT. ACTION REQUIRED NOW: Save your current working state to archival memory.
 Include: (1) current task and step, (2) next planned action, (3) key file paths, (4) any decisions or findings in progress.
 After compaction, search archival for tag "todo-recovery" or "compaction-recovery" to find your place.
 WARN
     exit 0
-elif [ "$usage_pct" -gt 70 ]; then
+elif [ "$usage_pct" -gt "$WARN_PCT" ]; then
     cat <<WARN >&2
-CONTEXT WINDOW WARNING (~${usage_pct}% capacity, ${msg_count} messages, ${context_window} token window).
+CONTEXT WINDOW WARNING (~${usage_pct}% estimated capacity, ${msg_count} messages, ${context_window} token window).
 Compaction may occur soon. Consider saving your current working state to archival memory: current task, step, next action, key file paths.
 WARN
     exit 0
