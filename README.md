@@ -14,17 +14,29 @@ With default settings, compaction often loses:
 - **File paths** — specific paths the agent was actively using
 - **Decision context** — why the agent was doing what it was doing
 
-Compaction-Rx adds four layers of protection using Letta's own API and hook system. No platform changes needed. Just shell scripts.
+Compaction-Rx adds five layers of protection using Letta's own API, hook system, and skill mechanism. No platform changes needed.
 
-## The Four Layers
+## The Five Layers
 
-### 1. Custom Compaction Prompt
+### 1. "Hold My Beer" Skill (NEW — Primary Defense)
+
+A Letta skill the agent loads on demand when context is critically full. Unlike external hooks that save state blindly, the agent itself executes a structured save — because **the agent knows what matters**.
+
+When the context warning hits ~85%, it tells the agent to load this skill. The skill contains precise instructions for saving a structured recovery snapshot to archival memory: current task, step, next action, key paths, decisions, todo status. The agent saves, verifies, and unloads the skill to free the tokens.
+
+**Why this is better than hooks:** Hooks save the last 10 messages blindly via API. The agent saves what's actually important using its own context and judgment.
+
+```
+skills/hold-my-beer/SKILL.md   # Copy to ~/.letta/skills/hold-my-beer/
+```
+
+### 2. Custom Compaction Prompt
 
 Replaces the default summarizer instructions with a prompt that tells the compaction model what to preserve and — critically — tells it the output budget upfront so it doesn't waste tokens on formatting.
 
 The default uses `anthropic/claude-sonnet-4-5-20250929` as the summarizer. Sonnet typically follows formatting instructions well, but **you may find other models work better for your agents and workflow.** You can change the model in `apply-compaction-settings.sh`.
 
-### 2. Context Warning Hook (UserPromptSubmit)
+### 3. Context Warning Hook (UserPromptSubmit)
 
 Runs before each user message. Queries the Letta API for the agent's context window size, memory block sizes, and message count, then **estimates** how full the context is.
 
@@ -33,13 +45,13 @@ Runs before each user message. Queries the Letta API for the agent's context win
 
 The warning is injected as a `<system-reminder>` the agent sees alongside the user's message, telling it to save working state to archival memory.
 
-### 3. Pre-Compaction Auto-Save (PreCompact)
+### 4. Pre-Compaction Auto-Save (PreCompact)
 
 Fires immediately before compaction. Automatically saves a snapshot of the agent's state to archival memory via API — the agent doesn't need to do anything. Captures agent info, message count, and the last 10 messages for continuity.
 
 > ⚠️ **Known issue:** The `PreCompact` hook event is defined in Letta Code's type system and passes all integration tests, but is never actually called from production code as of v0.14.14. See [letta-ai/letta-code#870](https://github.com/letta-ai/letta-code/issues/870). As a workaround, Compaction-Rx now also triggers an auto-save from the context warning hook at the critical threshold (~85%), which does not depend on the `PreCompact` event. The `PreCompact` hook script remains in place and will activate automatically once Letta wires the event.
 
-### 4. Post-Compaction Summary Capture (UserPromptSubmit)
+### 5. Post-Compaction Summary Capture (UserPromptSubmit)
 
 Built into the context warning hook. Tracks message count between turns. When the count drops significantly (compaction just happened), grabs the compaction summary from the first messages in context and saves it to archival memory — full and untruncated.
 
@@ -270,27 +282,35 @@ This is alpha software with known limitations:
 ┌─────────────────────────────────────────────────┐
 │                  Agent Context                   │
 │                                                  │
-│  ┌─── Layer 2: UserPromptSubmit Hook ──────┐    │
+│  ┌─── Layer 3: Context Warning Hook ───────┐    │
 │  │ Queries API for real context window size  │    │
 │  │ Dynamic thresholds: 70% warn, 85% crit   │    │
-│  │ Detects post-compaction, saves summary    │    │
+│  │ At 85%: tells agent to load the skill     │    │
 │  └──────────────────────────────────────────┘    │
 │                      │                           │
 │                      ▼                           │
-│  ┌─── Layer 3: PreCompact Auto-Save ──────┐    │
-│  │ Snapshots state to archival via API      │    │
+│  ┌─── Layer 1: "Hold My Beer" Skill ──────┐    │
+│  │ Agent loads skill, saves structured       │    │
+│  │ snapshot using its own context/judgment   │    │
+│  │ Verifies save, unloads skill             │    │
 │  └──────────────────────────────────────────┘    │
 │                      │                           │
 │                      ▼                           │
-│  ┌─── Layer 4: Compaction Summary Capture ─┐    │
-│  │ Detects compaction, saves full summary   │    │
-│  │ to archival (permanent)                  │    │
+│  ┌─── Layer 4: PreCompact Auto-Save ──────┐    │
+│  │ Backup: snapshots state via API hook     │    │
+│  │ (pending letta-ai/letta-code#870)        │    │
 │  └──────────────────────────────────────────┘    │
 │                      │                           │
 │                      ▼                           │
-│  ┌─── Layer 1: Custom Compaction Prompt ───┐    │
+│  ┌─── Layer 2: Custom Compaction Prompt ───┐    │
 │  │ Tells summarizer what to preserve        │    │
 │  │ Token-conscious: no wasted formatting    │    │
+│  └──────────────────────────────────────────┘    │
+│                      │                           │
+│                      ▼                           │
+│  ┌─── Layer 5: Compaction Summary Capture ─┐    │
+│  │ Detects compaction, saves full summary   │    │
+│  │ to archival (permanent)                  │    │
 │  └──────────────────────────────────────────┘    │
 │                      │                           │
 │                      ▼                           │
@@ -301,7 +321,7 @@ This is alpha software with known limitations:
 
 ## Recommended Practice: Todo Chain Protection
 
-The four layers above are **reactive**. This practice is **preventive** — it saves state *before* compaction can destroy it.
+The layers above are mostly **reactive**. This practice is **preventive** — it saves state *before* compaction can destroy it.
 
 If your agent runs multi-step task chains, add this to its system prompt or memory blocks:
 
