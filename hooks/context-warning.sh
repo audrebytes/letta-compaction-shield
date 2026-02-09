@@ -210,26 +210,35 @@ log "fixed=${fixed_tokens}tok avail=${available_for_messages}tok est_used=${esti
 if [ "$usage_pct" -gt 85 ]; then
     log "CRITICAL WARNING fired"
 
-    # Auto-save: grab last 10 messages and save to archival as pre-compaction snapshot
-    # This compensates for PreCompact hook not being wired in Letta Code (as of v0.13)
+    # Auto-save: grab last 20 messages and save to archival as pre-compaction snapshot
+    # This compensates for PreCompact hook not being wired in Letta Code (bug #870)
+    # NOTE: This is the DUMB backup. The SMART save is hold-my-beer (agent-driven).
     autosave_cache="${CACHE_DIR}/${agent_id}_autosaved"
     if [ ! -f "$autosave_cache" ]; then
         log "Auto-saving pre-compaction snapshot..."
-        last_messages=$(curl -s --max-time 5 \
+        last_messages=$(curl -s --max-time 8 \
             -H "Authorization: Bearer ${working_key}" \
-            "https://api.letta.com/v1/agents/${agent_id}/messages/?limit=10&order=desc" 2>/dev/null \
+            "https://api.letta.com/v1/agents/${agent_id}/messages/?limit=20&order=desc" 2>/dev/null \
             | jq -r '[.[] | {
                 type: .message_type,
                 content: (
-                    if .content then (.content | tostring | .[0:300])
-                    elif .assistant_message then (.assistant_message | .[0:300])
-                    elif .reasoning then (.reasoning | .[0:300])
-                    elif .tool_call then ("tool: " + (.tool_call.name // "?"))
-                    elif .tool_return then (.tool_return | tostring | .[0:200])
-                    else "—"
+                    if .message_type == "user_message" then
+                        "USER: " + ((.content // "") | tostring | .[0:800])
+                    elif .message_type == "assistant_message" then
+                        "ASSISTANT: " + ((.content // "") | tostring | .[0:800])
+                    elif .message_type == "approval_request_message" then
+                        "TOOL_CALL: " + ((.tool_call.name // "?") + "(" + ((.tool_call.arguments // "") | tostring | .[0:500]) + ")")
+                    elif .message_type == "tool_return_message" then
+                        "TOOL_RESULT: " + ((.tool_return // "") | tostring | .[0:500])
+                    elif .message_type == "system_message" then
+                        "SYSTEM: " + ((.content // "") | tostring | .[0:500])
+                    elif .message_type == "reasoning_message" then
+                        "THINKING: " + ((.reasoning // "") | tostring | .[0:300])
+                    else
+                        (.message_type // "unknown") + ": " + ((.content // .tool_return // "") | tostring | .[0:300])
                     end
                 )
-            }] | map("[\(.type)] \(.content)") | join("\n")' 2>/dev/null)
+            }] | map(.content) | join("\n---\n")' 2>/dev/null)
 
         timestamp=$(date -u +"%Y-%m-%d %H:%M:%S UTC")
         archival_text="## Auto-Save: Pre-Compaction Snapshot (Context Warning)
@@ -237,12 +246,14 @@ if [ "$usage_pct" -gt 85 ]; then
 **Time:** ${timestamp}
 **Context:** ${msg_count} messages in ${context_window} token window (~${usage_pct}% full)
 **Trigger:** Context warning hook at critical threshold (PreCompact hook workaround)
+**Note:** This is a blind backup. hold-my-beer saves are more detailed — check those first.
 
-### Last 10 Messages (most recent first):
+### Last 20 Messages (most recent first):
 ${last_messages}
 
 ### Recovery Instructions:
-This was saved automatically when context hit ~${usage_pct}%. Your manual archival saves (tagged todo-recovery or compaction-recovery) will have more detailed working state if you made them. Check both."
+Search archival for tag \"hold-my-beer\" first — those have structured working state.
+Then check \"compaction-recovery\" or \"todo-recovery\" for additional context."
 
         archival_payload=$(jq -n \
             --arg text "$archival_text" \
