@@ -21,7 +21,7 @@ Having a map in your pocket doesn't mean you know where you are when someone dro
 
 ## The Solution
 
-Three layers, using Letta's own API and hook system. No platform changes needed.
+Four layers, using Letta's own API and hook system. No platform changes needed.
 
 ### Layer 1: Custom Compaction Prompt (v2)
 
@@ -43,9 +43,19 @@ A shell script that runs before each user message. Queries the Letta API for the
 
 The warning tells the agent to save to **archival memory** — permanent, searchable storage that survives compaction completely intact. This is different from the compaction summary, which is lossy by design.
 
-### Layer 3: Pre-Compaction Hook (PreCompact)
+### Layer 3: Pre-Compaction Auto-Save Hook v2 (PreCompact)
 
-A last-chance warning that fires immediately before compaction. Can't block it, but the agent sees the alert.
+Fires immediately before compaction. Can't block it, but now does useful work: queries the Letta API for the agent's info and last 10 messages, then **writes a snapshot directly to the agent's archival memory** via API. No agent action needed — the save happens automatically in the hook itself.
+
+### Layer 4: Post-Compaction Summary Capture (UserPromptSubmit)
+
+Built into the context warning hook. Caches each agent's message count between turns. When the count drops by 30+ messages (indicating compaction just happened), the hook:
+
+1. Grabs the compaction summary from the first messages in the new context
+2. Saves the **full, untruncated summary** to archival memory
+3. Tags it `compaction-summary` + `auto-save` for easy retrieval
+
+This solves the truncation problem: compaction summaries are valuable but get lost to future compactions. Now every summary is permanently preserved in archival at full length.
 
 ## How Hook Injection Works
 
@@ -166,12 +176,18 @@ The default setup uses `anthropic/claude-sonnet-4-5-20250929` as the summarizer.
 │  ┌─── Layer 2: UserPromptSubmit Hook ──────┐    │
 │  │ Queries API for real context window size   │    │
 │  │ Dynamic thresholds: 70% warn, 85% crit   │    │
-│  │ Agent saves to archival memory            │    │
+│  │ Detects post-compaction, saves summary    │    │
 │  └──────────────────────────────────────────┘    │
 │                      │                           │
 │                      ▼                           │
-│  ┌─── Layer 3: PreCompact Hook ────────────┐    │
-│  │ Last-chance warning before compaction     │    │
+│  ┌─── Layer 3: PreCompact Auto-Save ──────┐    │
+│  │ Snapshots state to archival via API      │    │
+│  └──────────────────────────────────────────┘    │
+│                      │                           │
+│                      ▼                           │
+│  ┌─── Layer 4: Compaction Summary Capture ─┐    │
+│  │ Detects compaction, saves full summary   │    │
+│  │ to archival (untruncated, permanent)     │    │
 │  └──────────────────────────────────────────┘    │
 │                      │                           │
 │                      ▼                           │
