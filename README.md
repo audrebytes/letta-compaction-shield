@@ -37,6 +37,8 @@ The warning is injected as a `<system-reminder>` the agent sees alongside the us
 
 Fires immediately before compaction. Automatically saves a snapshot of the agent's state to archival memory via API — the agent doesn't need to do anything. Captures agent info, message count, and the last 10 messages for continuity.
 
+> ⚠️ **Known issue:** The `PreCompact` hook event is defined in Letta Code's type system and passes all integration tests, but is never actually called from production code as of v0.14.14. See [letta-ai/letta-code#870](https://github.com/letta-ai/letta-code/issues/870). As a workaround, Compaction-Rx now also triggers an auto-save from the context warning hook at the critical threshold (~85%), which does not depend on the `PreCompact` event. The `PreCompact` hook script remains in place and will activate automatically once Letta wires the event.
+
 ### 4. Post-Compaction Summary Capture (UserPromptSubmit)
 
 Built into the context warning hook. Tracks message count between turns. When the count drops significantly (compaction just happened), grabs the compaction summary from the first messages in context and saves it to archival memory — full and untruncated.
@@ -255,6 +257,8 @@ This is alpha software with known limitations:
 - **New agents need settings.** Compaction settings are per-agent. Run `apply-compaction-settings.sh` after creating new agents to apply the custom prompt.
 
 - **Letta Code updates may reset hooks.** If a Letta Code update rewrites `settings.json`, you'll need to re-add the hook entries.
+
+- **PreCompact event not yet wired.** As of Letta Code v0.14.14, the `PreCompact` hook event is never fired in production. Layer 3 relies on the critical-threshold auto-save workaround instead. Tracking: [letta-ai/letta-code#870](https://github.com/letta-ai/letta-code/issues/870).
 
 - **Summary capture is post-truncation.** The auto-saved compaction summary is captured after `clip_chars` truncation. If the summarizer produced more than 5000 characters, the saved version is still truncated. (We're exploring ways to capture the full output in a future version.)
 
