@@ -99,8 +99,9 @@ if [ -f "$cache_file" ]; then
     if [ -n "$prev_count" ] && [ "$prev_count" -gt 0 ] 2>/dev/null; then
         drop=$(( prev_count - msg_count ))
         log "prev=$prev_count current=$msg_count drop=$drop"
-        # If message count dropped by 30+, compaction happened
-        if [ "$drop" -gt 30 ]; then
+        # If message count dropped at all, compaction happened
+        # Messages only ever increase between turns — any decrease means compaction
+        if [ "$drop" -gt 0 ]; then
             compaction_detected=true
             timestamp=$(date -u +"%Y-%m-%d %H:%M:%S UTC")
             log "COMPACTION DETECTED! Saving summary to archival..."
