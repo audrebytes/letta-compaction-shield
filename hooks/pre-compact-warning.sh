@@ -37,11 +37,19 @@ fi
 
 log "agent_id=$agent_id"
 
-# Both account API keys
-KEYS=(
-    "sk-let-OWQyNTI0YjEtZDc0NS00MzczLWIxMjctZjdlZjAzYTg1MzFmOjk3NDA2YWZhLWI0MzgtNGViMi1hYmE2LWQ5YjMyYzJkYWVkMg=="
-    "sk-let-MGY0YTNkODctOTMyMi00MTIzLTkzNjktYWU4MWMxMDYxZGM0OmIyMWRhNDY1LTlhOGQtNDA5ZC05YjkyLTY0ZTU3OThlY2FiNQ=="
-)
+# Build keys from environment — Letta keys are project-scoped
+# Set LETTA_API_KEY (single project) or LETTA_API_KEYS (comma-separated, multiple projects)
+KEYS=()
+if [ -n "${LETTA_API_KEYS:-}" ]; then
+    IFS=',' read -ra KEYS <<< "$LETTA_API_KEYS"
+elif [ -n "${LETTA_API_KEY:-}" ]; then
+    KEYS=("$LETTA_API_KEY")
+fi
+
+if [ ${#KEYS[@]} -eq 0 ]; then
+    log "No API keys found — set LETTA_API_KEY or LETTA_API_KEYS in environment"
+    exit 0
+fi
 
 # Find the right key and get agent info
 agent_json=""
