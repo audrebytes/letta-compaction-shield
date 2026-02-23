@@ -1,4 +1,10 @@
 #!/bin/bash
+# =============================================================
+# !! DO NOT HARDCODE API KEYS IN THIS FILE !!
+# This file is in a PUBLIC git repo. Keys go in env vars ONLY.
+# Use LETTA_API_KEY or LETTA_API_KEYS in your shell profile
+# or ~/.letta/settings.json — NEVER pasted directly in here.
+# =============================================================
 # Context Window Warning Hook v4 (UserPromptSubmit)
 # 
 # Two jobs:
@@ -312,3 +318,4 @@ fi
 log "No warning needed (${usage_pct}%)"
 log "=== Hook complete ==="
 exit 0
+

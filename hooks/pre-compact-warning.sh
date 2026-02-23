@@ -1,4 +1,10 @@
 #!/bin/bash
+# =============================================================
+# !! DO NOT HARDCODE API KEYS IN THIS FILE !!
+# This file is in a PUBLIC git repo. Keys go in env vars ONLY.
+# Use LETTA_API_KEY or LETTA_API_KEYS in your shell profile
+# or ~/.letta/settings.json — NEVER pasted directly in here.
+# =============================================================
 # Pre-Compaction Auto-Save Hook v3 (PreCompact)
 #
 # Fires immediately before context compaction occurs.
