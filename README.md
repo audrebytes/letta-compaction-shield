@@ -49,7 +49,9 @@ The warning is injected as a `<system-reminder>` the agent sees alongside the us
 
 Fires immediately before compaction. Automatically saves a snapshot of the agent's state to archival memory via API — the agent doesn't need to do anything. Captures agent info, message count, and the last 10 messages for continuity.
 
-> ⚠️ **Known issue:** The `PreCompact` hook event is defined in Letta Code's type system and passes all integration tests, but is never actually called from production code as of v0.14.14. See [letta-ai/letta-code#870](https://github.com/letta-ai/letta-code/issues/870). As a workaround, Compaction-Rx now also triggers an auto-save from the context warning hook at the critical threshold (~85%), which does not depend on the `PreCompact` event. The `PreCompact` hook script remains in place and will activate automatically once Letta wires the event.
+> ✅ **Fixed in v0.14.16** — The `PreCompact` hook now fires correctly on server-side auto-compaction. See [letta-ai/letta-code#870](https://github.com/letta-ai/letta-code/issues/870) (closed) and [PR #895](https://github.com/letta-ai/letta-code/pull/895). The hook runs and completes (saving to archival) before compaction proceeds — the hook's execution window is your grace period. We recommend a 15-second timeout (vs the default 5s) to give the API call room to complete; see the Manual Setup section.
+>
+> The context warning hook's critical-threshold auto-save (Layer 3) remains in place as defense-in-depth — proactive warning before the edge beats reactive recovery after it.
 
 ### 5. Post-Compaction Summary Capture (UserPromptSubmit)
 
@@ -270,11 +272,11 @@ This is alpha software with known limitations:
 
 - **Letta Code updates may reset hooks.** If a Letta Code update rewrites `settings.json`, you'll need to re-add the hook entries.
 
-- **PreCompact event not yet wired.** As of Letta Code v0.14.14, the `PreCompact` hook event is never fired in production. Layer 3 relies on the critical-threshold auto-save workaround instead. Tracking: [letta-ai/letta-code#870](https://github.com/letta-ai/letta-code/issues/870).
+- **PreCompact event — fixed.** As of v0.14.16 ([PR #895](https://github.com/letta-ai/letta-code/pull/895)), the `PreCompact` hook fires correctly on server-side auto-compaction. We recommend setting the PreCompact hook timeout to `15000` (15s) rather than the default 5s — the hook needs to complete an API call, and 5s is tight. See Manual Setup.
 
 - **Summary capture is post-truncation.** The auto-saved compaction summary is captured after `clip_chars` truncation. If the summarizer produced more than 5000 characters, the saved version is still truncated. (We're exploring ways to capture the full output in a future version.)
 
-- **Hook timeout.** Each hook has a timeout (10s for context warning, 5s for pre-compact). If the API is slow, the hook may not complete. The agent session continues normally — you just don't get the warning or auto-save for that turn.
+- **Hook timeout.** Each hook has a timeout (10s for context warning, 15s recommended for pre-compact). If the API is slow, the hook may not complete — the agent session continues normally, you just don't get the save for that turn. The pre-compact hook needs to make an API call, so 5s (the old default) is too tight; 15s gives it real room.
 
 ## Architecture
 
@@ -298,7 +300,7 @@ This is alpha software with known limitations:
 │                      ▼                           │
 │  ┌─── Layer 4: PreCompact Auto-Save ──────┐    │
 │  │ Backup: snapshots state via API hook     │    │
-│  │ (pending letta-ai/letta-code#870)        │    │
+│  │ (fixed in v0.14.16, PR #895)             │    │
 │  └──────────────────────────────────────────┘    │
 │                      │                           │
 │                      ▼                           │
