@@ -80,7 +80,8 @@ cd letta-compaction-shield
 # Set your API key
 export LETTA_API_KEY="your-key-here"
 
-# For multiple accounts, use comma-separated keys:
+# Letta API keys are per-project (not per-account).
+# If your agents live in different projects, use comma-separated keys:
 # export LETTA_API_KEYS="key1,key2"
 
 # Run the installer
@@ -90,7 +91,7 @@ export LETTA_API_KEY="your-key-here"
 The installer will:
 1. Copy hook scripts to `~/.letta/hooks/`
 2. Configure `~/.letta/settings.json` with hook entries
-3. Apply compaction settings to all agents on your account(s)
+3. Apply compaction settings to all agents on your project(s)
 
 ### Manual Setup
 
@@ -162,7 +163,7 @@ All configuration is through environment variables. Set them in your shell profi
 | Variable | Description |
 |----------|-------------|
 | `LETTA_API_KEY` | Your Letta API key |
-| `LETTA_API_KEYS` | Comma-separated keys for multiple accounts (use instead of `LETTA_API_KEY`) |
+| `LETTA_API_KEYS` | Comma-separated keys for multiple projects — Letta API keys are **project-scoped**, not account-level. If your agents span multiple projects, you need a key for each. (Use instead of `LETTA_API_KEY`) |
 
 **Optional — Warning Thresholds:**
 
